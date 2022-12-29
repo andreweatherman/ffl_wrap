@@ -1,0 +1,26 @@
+{
+    "id": "57ABE8BA",
+    "path": "~/Desktop/ffl_wrap/app.R",
+    "project_path": "app.R",
+    "type": "r_source",
+    "hash": "4054642546",
+    "contents": "",
+    "dirty": false,
+    "created": 1671750065751.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "329,8",
+        "scrollLine": "301"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1671844616,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1671844616674,
+    "read_only": false,
+    "read_only_alternatives": []
+}

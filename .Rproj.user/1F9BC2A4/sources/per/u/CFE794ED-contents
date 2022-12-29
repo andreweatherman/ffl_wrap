@@ -1,0 +1,140 @@
+swid = '41913F6A-5AEA-48D4-913F-6A5AEA58D4F3'
+espn_s2 = 'AEBNVkIqYaOd5Oqobre2EZDQjvo%2BOWweECu8IZ0IVZ7Mqn%2FiglAX%2B8gkrdzUV6LfJbKGD7EYWLrCqMbH%2FtBJW%2FIv1kJ7CCEHC0IQKTGL9oE0%2FgXd5TrX12hvciAa75TKybe26B2Mpi1TC8NOtsBfGXqwa4%2FIyFWx0zoqxthGRf5506e7x%2FH5%2BYNbZf5j3UGTmmNrH%2FGi3lu8HN6GU93k%2FR5n9%2B1haw2fEPMAeRdd0kmrL5Thloc4I86jfS6hJmzRsJbvKQOUFsOq2IlIZApcSGFFSGp5iqIgCRh0XN9BM1swsw%3D%3D'
+
+library(ffscrapr)
+library(tidyverse)
+library(gt)
+library(gtExtras)
+
+con <- espn_connect(
+  season = 2022,
+  league_id = 425862554,
+  espn_s2 = espn_s2,
+  swid = swid
+)
+
+glimpse(ff_draft(con))
+transactions <- ff_transactions(con)
+starters <- ff_starters(con)
+ideal <- espn_potentialpoints(con)
+draft <- ff_draft(con)
+scoring_hist <- ff_scoringhistory(con, 2022)
+
+transactions |> 
+  group_by(franchise_name, type) |> 
+  count() |> 
+  print(n=Inf)
+
+current_team <- starters |> 
+  group_by(player_name) |> 
+  slice_tail(n = 1) |> 
+  select(player_name, franchise_name) |> 
+  ungroup()
+
+# overperforming players =======
+starters |> 
+  filter(lineup_slot != 'BE') |> 
+  group_by(player_name, pos)  |> 
+  summarize(tot_score = sum(player_score), 
+            proj_score = sum(projected_score, na.rm = TRUE),
+            proj_diff = tot_score - proj_score,
+            per_game = tot_score / n(), 
+            games = n(),
+            .groups = 'drop') |> 
+  left_join(current_team, by = 'player_name') |> 
+  mutate(stacked = paste0(pos, ' | ', franchise_name)) |> 
+  arrange(desc(proj_diff)) |> 
+  filter(tot_score >= 150 & pos != 'QB') |>
+  slice(1:10) |> 
+  select(-c(pos, franchise_name)) |> 
+  setNames(c('Player', 'Total', 'Projected', 'Difference', 'PPG', 'Games', 'Stack')) |> 
+  gt() |> 
+  gt_theme_nytimes() |> 
+  gt_color_rows(Difference, palette = 'ggsci::green_material') |> 
+  cols_align(align = 'center') |> 
+  fmt_number(Difference, decimals = 1) |> 
+  fmt_number(PPG, decimals = 1) |> 
+  gt_merge_stack(Player, Stack, small_cap = FALSE) |> 
+  tab_header(title = 'Top Fantasy Overperformers',
+             subtitle = 'Actual points vs. expected for starting fantasy players in Last Dance Fantasy') |> 
+  tab_source_note('Entering Week 16 (Round Two)') |> 
+  tab_options(source_notes.font.size = 12) |> 
+  opt_row_striping()
+
+
+# unlucky managers =======
+
+starters |> 
+  group_by(franchise_name, week) |> 
+  mutate(starter = ifelse(lineup_slot != 'BE', 1, 0),
+         flex = ifelse(pos %in% c('RB', 'WR', 'TE'), 1, 0)) |> 
+  group_by(franchise_name, week, pos) |> 
+  select(flex, player_name, player_score, projected_score, starter) |> 
+  mutate(proj_less_starter = case_when(
+    starter == 0 & 
+  )
+
+  
+# scoring history
+
+scoring_hist |> 
+  mutate(fumbles = receiving_fumbles_lost + rushing_fumbles_lost + sack_fumbles_lost) |> 
+  select(c(week, espn_id, player_name, pos, points, passing_yards, passing_tds, 
+           interceptions, receptions, receiving_yards, receiving_tds, rushing_yards, 
+           rushing_tds, special_teams_tds, passing_2pt_conversions, 
+           receiving_2pt_conversions, rushing_2pt_conversions, fumbles)) |>
+  setNames(c('week', 'espn_id', 'player', 'pos', 'points', 'Pass Yds.', 'Pass TDs',
+             'Interceptions', 'Catches', 'Rec. Yds.', 'Rec. TDs', 'Rush Yds.', 'Rush TDs',
+             'Spec. TDs', 'Passing 2PT', 'Rec. 2PT', 'Rush 2PT', 'Fumbles')) |> 
+  arrange(week) |> 
+  filter(player == 'Jalen Hurts') |> 
+  gt_preview() |> 
+  gt_theme_nytimes() |> 
+  gt_color_rows(points, palette = 'ggsci::green_material') |> 
+  cols_align(align = 'center') |> 
+  fmt_number(points, decimals = 1)
+  
+# draft ================
+
+franchise <- tibble(
+  team = ff_franchises(con) |> pluck(2),
+  name = c('Sam Whitestone', 'Phillip Jennings', 'Allie Whitestone', 
+           'Tom Whitestone', 'JJ DeVos', 'Nolan DeVos', 'Dan DeVos', 'Andrew Weatherman')
+)
+
+draft |> 
+  select(round, pick, overall, franchise_name, player_name, pos, autodraft_type) |> 
+  left_join(franchise, by = c('franchise_name' = 'team')) |>
+  gt() |> 
+  gt_theme_nytimes() |> 
+  gt_merge_stack(franchise_name, name, small_cap = FALSE) |> 
+  tab_style(
+    style = cell_text(weight = 'bold'),
+    locations = cells_body(
+      columns = player_name,
+      rows = autodraft_type == 3
+    )
+  ) |> 
+  cols_hide(autodraft_type) |> 
+  tab_header(title = 'Last Dance Fantasy Draft Recap',
+             subtitle = 'Draft summary for the 2022 Last Dance Fantasy draft') |> 
+  tab_source_note('Bolded players denote an autodrafted pick') |> 
+  tab_options(source_notes.font.size = 12)
+  
+# get headshots =======
+draft_no_dst <- draft |> filter(!grepl('D/ST', player_name))
+draft_headshots <- map2_dfr(
+  .x = draft_no_dst$player_id,
+  .y = draft_no_dst$player_name,
+  .f = function(x, y) {
+    url <- paste0('https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/', x)
+    dat <- jsonlite::fromJSON(url)
+    tib <- tibble(
+      id = x,
+      player = y,
+      url = dat[["athlete"]][["headshot"]][["href"]]
+    )
+  }
+) 
+  
+  
